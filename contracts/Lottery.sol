@@ -18,7 +18,7 @@ contract Lottery is ERC721 {
     }
 
     struct Round {
-        
+        uint xored;
         uint firstTicketNo;
         Ticket[] tickets;
     }
@@ -29,8 +29,8 @@ contract Lottery is ERC721 {
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
     uint initTime;
-    uint purchasePeriod = 2 minutes;
-    uint revealPeriod = 2 minutes;
+    uint purchasePeriod = 0.75 minutes;
+    uint revealPeriod = 0.25 minutes;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
@@ -99,6 +99,7 @@ contract Lottery is ERC721 {
         if(rounds[currentRoundNo].tickets[ticketno-firstTicketNo].hashRndNumber != keccak) {
             revert();
         }
+        rounds[currentRoundNo].xored ^= rnd_number;
         rounds[currentRoundNo].tickets[ticketno-firstTicketNo].rndNumber = rnd_number;
         rounds[currentRoundNo].tickets[ticketno-firstTicketNo].revealed = true;
     }
@@ -128,7 +129,7 @@ contract Lottery is ERC721 {
         return (0,0);
     }
 
-    function determineWinningNumber(uint lottery_no) public {
+    /*function determineWinningNumber(uint lottery_no) public {
         lottery_no--;
         Round memory round = rounds[lottery_no];
         uint n = 0;
@@ -146,7 +147,7 @@ contract Lottery is ERC721 {
             uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;
             rounds[lottery_no].tickets[winnerTicketIndex].prize += prize;
         }
-    }
+    }*/
 
     function log(uint m) private pure returns(uint ceiling){
         uint exponential = 1;
@@ -176,7 +177,16 @@ contract Lottery is ERC721 {
             Round memory round = rounds[i];
             uint index = ticket_no - round.firstTicketNo;
             if(index < round.tickets.length && round.tickets[index].ticketNo == ticket_no && round.tickets[index].revealed) {
-                return (round.tickets[index].prize,i);
+                uint winnerCount = log(amountCollectedOfLottery[i])+1;
+                uint n = round.xored;
+                uint prize = 0;
+                for(uint j=1; j<winnerCount+1; j++) {
+                    n = getKeccak256Hash(n);
+                    if(n%round.tickets.length == index) {
+                        prize += (amountCollectedOfLottery[i]/(2**j)) + (amountCollectedOfLottery[i]/(2**(j-1))) % 2;
+                    }
+                }
+                return (prize,i);
             }
         }
         return (0,0);
@@ -214,5 +224,9 @@ contract Lottery is ERC721 {
 
     function getLotteryNo(uint unixtimeinweek) public view returns (uint lottery_no) {
         return (unixtimeinweek - initTime) / (purchasePeriod + revealPeriod) + 1;
+    }
+
+    function getXored() public view returns(uint){
+        return rounds[0].xored;
     }
 }

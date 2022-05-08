@@ -129,26 +129,6 @@ contract Lottery is ERC721 {
         return (0,0);
     }
 
-    /*function determineWinningNumber(uint lottery_no) public {
-        lottery_no--;
-        Round memory round = rounds[lottery_no];
-        uint n = 0;
-        uint i = 0;
-        for( ;i<round.tickets.length; i++) {
-            if(round.tickets[i].revealed == true && round.tickets[i].refunded == false) {
-                n ^= round.tickets[i].rndNumber;
-            }
-        }
-        uint winnerCount = log(amountCollectedOfLottery[lottery_no])+1;
-        i = 1;
-        for( ;i < winnerCount + 1; i++) {
-            n = getKeccak256Hash(n);
-            uint prize = (amountCollectedOfLottery[lottery_no]/(2*i)) + (amountCollectedOfLottery[lottery_no]/(2*(i-1))) % 2;
-            uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;
-            rounds[lottery_no].tickets[winnerTicketIndex].prize += prize;
-        }
-    }*/
-
     function log(uint m) private pure returns(uint ceiling){
         uint exponential = 1;
         uint count = 0;
@@ -206,13 +186,18 @@ contract Lottery is ERC721 {
 
     function getIthWinningTicket(uint i, uint lottery_no) public view returns (uint ticket_no, uint amount) {
         lottery_no--;
-        for(uint j = 0; j < rounds[lottery_no].tickets.length; j++) {
-            if(i == 1) {
-                return (rounds[lottery_no].tickets[j].ticketNo,rounds[lottery_no].tickets[j].prize);
-            }
-            i--;
+        uint n = rounds[lottery_no].xored;
+        uint winnerCount = log(amountCollectedOfLottery[lottery_no])+1;
+        if(i > winnerCount) {
+            revert();
         }
-        return (0,0);
+        for(; i>0; i--) {
+            n = getKeccak256Hash(n);
+        }
+        uint index = n%rounds[lottery_no].tickets.length;
+        uint ticketNo = rounds[lottery_no].tickets[index].ticketNo;
+        (uint amnt, ) = checkIfTicketWonExtended(ticketNo);
+        return (ticketNo,amnt);
     }
 
     function getCurrentRoundNoAndDeadlines() private view returns(uint currentRound, uint purchaseDL, uint revealDL) {

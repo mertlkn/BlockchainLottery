@@ -128,19 +128,19 @@ contract Lottery is ERC721 {
         return (0,0);
     }
 
-    function determineWinningNumber(uint lottery_no) private {
+    function determineWinningNumber(uint lottery_no) public {
         lottery_no--;
         Round memory round = rounds[lottery_no];
         uint n = 0;
         uint i = 0;
-        for(; i<round.tickets.length; i++) {
+        for( ;i<round.tickets.length; i++) {
             if(round.tickets[i].revealed == true && round.tickets[i].refunded == false) {
                 n ^= round.tickets[i].rndNumber;
             }
         }
         uint winnerCount = log(amountCollectedOfLottery[lottery_no])+1;
         i = 1;
-        for(;i<winnerCount+1; i++) {
+        for( ;i < winnerCount + 1; i++) {
             n = getKeccak256Hash(n);
             uint prize = (amountCollectedOfLottery[lottery_no]/(2*i)) + (amountCollectedOfLottery[lottery_no]/(2*(i-1))) % 2;
             uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;

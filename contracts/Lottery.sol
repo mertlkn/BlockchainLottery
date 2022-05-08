@@ -67,6 +67,7 @@ contract Lottery is ERC721 {
     mapping(uint => uint[]) public winnerTicketsNoOfLottery;
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
+    uint initTime;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
@@ -78,6 +79,7 @@ contract Lottery is ERC721 {
         purchaseDeadline = block.timestamp + 4 days;
         revealDeadline = block.timestamp + 7 days;
         amountCollectedOfLottery[currentLotteryId] = 0;
+        initTime = block.timestamp;
     }
 
     modifier revealPhase {

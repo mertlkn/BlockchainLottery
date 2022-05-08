@@ -13,6 +13,8 @@ contract Lottery is ERC721 {
         uint256 lotteryId;
         bool revealed;
         bool refunded;
+        uint prize;
+        bool collected;
     }
 
     struct Round {
@@ -103,7 +105,7 @@ contract Lottery is ERC721 {
     function buyTicket(bytes32 hash_rnd_number) public newRound purchasePhase {
         
         
-        Ticket memory newTicket = Ticket(lastTicketId,msg.sender,hash_rnd_number,0,currentLotteryId,false,false);
+        Ticket memory newTicket = Ticket(lastTicketId,msg.sender,hash_rnd_number,0,currentLotteryId,false,false,0,false);
         rounds[currentLotteryId].tickets.push(newTicket);
         _safeMint(msg.sender, lastTicketId);
         lastTicketId += 1;
@@ -175,24 +177,7 @@ contract Lottery is ERC721 {
 
             uint prize = (amountCollectedOfLottery[lottery_no]/(2**i)) + (amountCollectedOfLottery[lottery_no]/(2**(i-1))) % 2;
             uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;
-            uint winnerTicketNo = winnerTicketIndex + round.firstTicketNo;
-            bool exists = false;
-            for(uint j=0; j<round.winners.length; j++) {
-                if(round.winners[j].winnerTicketNo == winnerTicketNo) {
-                    exists = true;
-                    rounds[lottery_no].winners[j].prize += prize;
-                    break;
-                }
-            }
-            if(!exists) {
-                Winner memory winner;
-                winner.winnerTicketNo = winnerTicketNo;
-                winner.prize = prize;
-                winner.collected = false;
-                winner.refunded = rounds[lottery_no].tickets[winnerTicketIndex].refunded;
-                winner.revealed = rounds[lottery_no].tickets[winnerTicketIndex].revealed;
-                rounds[lottery_no].winners.push(winner);
-            }
+            rounds[lottery_no].tickets[winnerTicketIndex].prize += prize;
         }
     }
 
@@ -219,11 +204,9 @@ contract Lottery is ERC721 {
         uint i = 0;
         for(;i<=currentLotteryId; i++) {
             Round memory round = rounds[i];
-            uint j = 0;
-            for(; j<round.winners.length; j++) {
-                if(round.winners[j].winnerTicketNo == ticket_no && !round.winners[j].refunded && round.winners[j].revealed) {
-                    round.winners[j].prize;
-                }
+            uint index = ticket_no - round.firstTicketNo;
+            if(index < round.tickets.length && round.tickets[index].ticketNo == ticket_no && round.tickets[index].revealed) {
+                return round.tickets[index].prize;
             }
         }
         return 0;
@@ -241,7 +224,13 @@ contract Lottery is ERC721 {
 
     function getIthWinningTicket(uint i, uint lottery_no) public view returns (uint ticket_no,uint amount) {
         lottery_no--;
-        return (rounds[lottery_no].winners[i].winnerTicketNo,rounds[lottery_no].winners[i].prize);
+        for(uint j = 0; j < rounds[lottery_no].tickets.length; j++) {
+            if(i == 1) {
+                return (rounds[lottery_no].tickets[j].ticketNo,rounds[lottery_no].tickets[j].prize);
+            }
+            i--;
+        }
+        return (0,0);
     }
 
     function getLotteryNo(uint unixtimeinweek) public view returns (uint lottery_no) {

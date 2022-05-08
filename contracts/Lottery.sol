@@ -41,8 +41,8 @@ contract Lottery is ERC721 {
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
     uint initTime;
-    uint purchasePeriod = 2 minutes;
-    uint revealPeriod = 2 minutes;
+    uint purchasePeriod = 4 days;
+    uint revealPeriod = 3 days;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
@@ -119,7 +119,7 @@ contract Lottery is ERC721 {
         amountCollectedOfLottery[currentLotteryId] -= 10; // refund 5 but keep 5 for the contract?
     }
 
-    function revealRndNumber(uint ticketno, uint rnd_number) public revealPhase{
+    function revealRndNumber(uint ticketno, uint rnd_number) public{
         if(ownerOf(ticketno) != msg.sender) {
             revert();
         }
@@ -172,14 +172,27 @@ contract Lottery is ERC721 {
         i = 1;
         for(;i<winnerCount+1; i++) {
             n = getKeccak256Hash(n);
-            uint prize = (amountCollectedOfLottery[lottery_no]/(2**(i+1))) + (amountCollectedOfLottery[lottery_no]/(2**i)) % 2;
-            Winner memory winner;
-            winner.winnerTicketNo = n%rounds[lottery_no].tickets.length;
-            winner.prize = prize;
-            winner.collected = false;
-            winner.refunded = rounds[lottery_no].tickets[winner.winnerTicketNo-rounds[lottery_no].firstTicketNo].refunded;
-            winner.revealed = rounds[lottery_no].tickets[winner.winnerTicketNo-rounds[lottery_no].firstTicketNo].revealed;
-            rounds[lottery_no].winners.push(winner);
+
+            uint prize = (amountCollectedOfLottery[lottery_no]/(2**i)) + (amountCollectedOfLottery[lottery_no]/(2**(i-1))) % 2;
+            uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;
+            uint winnerTicketNo = winnerTicketIndex + round.firstTicketNo;
+            bool exists = false;
+            for(uint j=0; j<round.winners.length; j++) {
+                if(round.winners[j].winnerTicketNo == winnerTicketNo) {
+                    exists = true;
+                    rounds[lottery_no].winners[j].prize += prize;
+                    break;
+                }
+            }
+            if(!exists) {
+                Winner memory winner;
+                winner.winnerTicketNo = winnerTicketNo;
+                winner.prize = prize;
+                winner.collected = false;
+                winner.refunded = rounds[lottery_no].tickets[winnerTicketIndex].refunded;
+                winner.revealed = rounds[lottery_no].tickets[winnerTicketIndex].revealed;
+                rounds[lottery_no].winners.push(winner);
+            }
         }
     }
 
@@ -204,12 +217,12 @@ contract Lottery is ERC721 {
 
     function checkIfTicketWon(uint ticket_no) public view returns (uint amount) {
         uint i = 0;
-        for(;i<currentLotteryId; i++) {
+        for(;i<=currentLotteryId; i++) {
             Round memory round = rounds[i];
             uint j = 0;
             for(; j<round.winners.length; j++) {
                 if(round.winners[j].winnerTicketNo == ticket_no && !round.winners[j].refunded && round.winners[j].revealed) {
-                    return round.winners[j].prize;
+                    round.winners[j].prize;
                 }
             }
         }

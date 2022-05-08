@@ -180,7 +180,7 @@ contract Lottery is ERC721 {
         return uint(keccak256(abi.encodePacked(num)));
     }
 
-    function checkIfTicketWon(uint ticket_no) public view returns (uint amount) {
+    function checkIfTicketWon(uint ticket_no) public newRound returns (uint amount) {
         (uint amnt, uint lottery_no) = checkIfTicketWonExtended(ticket_no);
         return amnt;
     }

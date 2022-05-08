@@ -32,8 +32,8 @@ contract Lottery is ERC721 {
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
     uint initTime;
-    uint purchasePeriod = 2 minutes;
-    uint revealPeriod = 1 minutes;
+    uint purchasePeriod = 0.5 minutes;
+    uint revealPeriod = 0.5 minutes;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
@@ -64,8 +64,8 @@ contract Lottery is ERC721 {
 
     modifier newRound {
         if(block.timestamp > revealDeadline) {
-            uint lottery_no = getLotteryNo(block.timestamp);
-            determineWinningNumber(currentLotteryId);
+            uint lottery_no = getLotteryNo(block.timestamp) - 1;
+            determineWinningNumber(currentLotteryId + 1);
             currentLotteryId = lottery_no;
             purchaseDeadline = initTime + currentLotteryId * (purchasePeriod + revealPeriod) + purchasePeriod;
             revealDeadline = purchaseDeadline + revealPeriod;
@@ -73,24 +73,21 @@ contract Lottery is ERC721 {
         _;
     }
 
-    function depositTL(uint amnt) public {
+    function depositTL(uint amnt) public newRound {
         if(_turkishLira.transferFrom(msg.sender,address(this),amnt)) {
             balances[msg.sender] += amnt;
         }
     }
 
-    function withdrawTL(uint amnt) public {
+    function withdrawTL(uint amnt) public newRound {
         if(balances[msg.sender]>amnt){
             _turkishLira.approve(address(this), amnt);
             _turkishLira.transferFrom(address(this),msg.sender,amnt);
             balances[msg.sender] -= amnt;
         }
-        
     }
 
     function buyTicket(bytes32 hash_rnd_number) public newRound purchasePhase {
-        
-        
         Ticket memory newTicket = Ticket(lastTicketId,msg.sender,hash_rnd_number,0,currentLotteryId,false,false,0,false);
         rounds[currentLotteryId].tickets.push(newTicket);
         _safeMint(msg.sender, lastTicketId);
@@ -99,7 +96,7 @@ contract Lottery is ERC721 {
         amountCollectedOfLottery[currentLotteryId] += 10;
     }
 
-    function collectTicketRefund(uint ticket_no) public purchasePhase {
+    function collectTicketRefund(uint ticket_no) public newRound purchasePhase {
         _burn(ticket_no);
         balances[msg.sender] += 5;
         uint firstTicketNo = rounds[currentLotteryId].firstTicketNo;
@@ -107,7 +104,7 @@ contract Lottery is ERC721 {
         amountCollectedOfLottery[currentLotteryId] -= 10; // refund 5 but keep 5 for the contract?
     }
 
-    function revealRndNumber(uint ticketno, uint rnd_number) public revealPhase{
+    function revealRndNumber(uint ticketno, uint rnd_number) public newRound revealPhase{
         if(ownerOf(ticketno) != msg.sender) {
             revert();
         }
@@ -146,7 +143,7 @@ contract Lottery is ERC721 {
     }
 
     // it should be run end of the reveal phase
-    function determineWinningNumber(uint lottery_no) public {
+    function determineWinningNumber(uint lottery_no) private {
         lottery_no--;
         Round memory round = rounds[lottery_no];
         uint i = 0;
@@ -161,7 +158,7 @@ contract Lottery is ERC721 {
         for(;i<winnerCount+1; i++) {
             n = getKeccak256Hash(n);
 
-            uint prize = (amountCollectedOfLottery[lottery_no]/(2**i)) + (amountCollectedOfLottery[lottery_no]/(2**(i-1))) % 2;
+            uint prize = (amountCollectedOfLottery[lottery_no]/(2*i)) + (amountCollectedOfLottery[lottery_no]/(2*(i-1))) % 2;
             uint winnerTicketIndex = n%rounds[lottery_no].tickets.length;
             rounds[lottery_no].tickets[winnerTicketIndex].prize += prize;
         }
@@ -179,7 +176,7 @@ contract Lottery is ERC721 {
         }
     }
 
-    function getKeccak256Hash(uint256 num) public pure returns (uint hash) {
+    function getKeccak256Hash(uint256 num) private pure returns (uint hash) {
         return uint(keccak256(abi.encodePacked(num)));
     }
 
@@ -200,7 +197,7 @@ contract Lottery is ERC721 {
         return (0,0);
     }
 
-    function collectTicketPrize(uint ticket_no) public {
+    function collectTicketPrize(uint ticket_no) public newRound {
         (uint amnt, uint lottery_no) = checkIfTicketWonExtended(ticket_no);
         if(amnt == 0 || rounds[lottery_no].tickets[ticket_no-rounds[lottery_no].firstTicketNo].collected) {
             revert();
@@ -212,7 +209,7 @@ contract Lottery is ERC721 {
         
     }
 
-    function getIthWinningTicket(uint i, uint lottery_no) public view returns (uint ticket_no,uint amount) {
+    function getIthWinningTicket(uint i, uint lottery_no) public view returns (uint ticket_no, uint amount) {
         lottery_no--;
         for(uint j = 0; j < rounds[lottery_no].tickets.length; j++) {
             if(i == 1) {

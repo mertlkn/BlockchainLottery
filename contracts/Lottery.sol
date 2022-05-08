@@ -159,10 +159,10 @@ contract Lottery is ERC721 {
         uint j = 0;
         for(;j < rounds[lottery_no].tickets.length; j++) {
             if(rounds[lottery_no].tickets[j].owner == msg.sender) {
-                i--;
                 if(i == 0) {
                     return (rounds[lottery_no].tickets[j].id,1);
                 }
+                i--;
             }
         }
         return (0,0);

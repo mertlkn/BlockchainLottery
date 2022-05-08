@@ -21,15 +21,6 @@ contract Lottery is ERC721 {
         uint lotteryNo;
         uint firstTicketNo;
         Ticket[] tickets;
-        Winner[] winners;
-    }
-
-    struct Winner {
-        uint winnerTicketNo;
-        uint prize;
-        bool collected;
-        bool revealed;
-        bool refunded;
     }
 
     mapping(address => uint256) public balances;
@@ -38,21 +29,16 @@ contract Lottery is ERC721 {
     uint256 currentLotteryId;
     uint purchaseDeadline;
     uint revealDeadline;
-    bool isRevealPhase=false;
-    mapping(uint => uint[]) public winnerTicketsNoOfLottery;
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
     uint initTime;
-    uint purchasePeriod = 4 days;
-    uint revealPeriod = 3 days;
+    uint purchasePeriod = 2 minutes;
+    uint revealPeriod = 1 minutes;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
         lastTicketId = 1;
         currentLotteryId = 0;
-        /*Round memory firstRound;
-        firstRound.firstTicketNo = lastTicketId;
-        firstRound.lotteryNo = currentLotteryId;*/
         rounds[0].firstTicketNo = lastTicketId;
         rounds[0].lotteryNo = currentLotteryId;
         purchaseDeadline = block.timestamp + purchasePeriod;
@@ -121,7 +107,7 @@ contract Lottery is ERC721 {
         amountCollectedOfLottery[currentLotteryId] -= 10; // refund 5 but keep 5 for the contract?
     }
 
-    function revealRndNumber(uint ticketno, uint rnd_number) public{
+    function revealRndNumber(uint ticketno, uint rnd_number) public revealPhase{
         if(ownerOf(ticketno) != msg.sender) {
             revert();
         }
@@ -196,30 +182,34 @@ contract Lottery is ERC721 {
     function getKeccak256Hash(uint256 num) public pure returns (uint hash) {
         return uint(keccak256(abi.encodePacked(num)));
     }
-    /*function getIthPrize(uint i) public returns (uint){
-        return amountCollectedOfLottery[0]/2*(i-1) + amountCollectedOfLottery[0]/2*(i-1)%2;
-    }*/
 
     function checkIfTicketWon(uint ticket_no) public view returns (uint amount) {
+        (uint amnt, uint lottery_no) = checkIfTicketWonExtended(ticket_no);
+        return amnt;
+    }
+
+    function checkIfTicketWonExtended(uint ticket_no) private view returns(uint amount, uint lottery_no) {
         uint i = 0;
-        for(;i<=currentLotteryId; i++) {
+        for(;i<currentLotteryId; i++) {
             Round memory round = rounds[i];
             uint index = ticket_no - round.firstTicketNo;
             if(index < round.tickets.length && round.tickets[index].ticketNo == ticket_no && round.tickets[index].revealed) {
-                return round.tickets[index].prize;
+                return (round.tickets[index].prize,i);
             }
         }
-        return 0;
+        return (0,0);
     }
 
     function collectTicketPrize(uint ticket_no) public {
-        uint prizeWon = checkIfTicketWon(ticket_no);
-        if(prizeWon == 0) {
+        (uint amnt, uint lottery_no) = checkIfTicketWonExtended(ticket_no);
+        if(amnt == 0 || rounds[lottery_no].tickets[ticket_no-rounds[lottery_no].firstTicketNo].collected) {
             revert();
         }
-        if(_turkishLira.transfer(msg.sender,prizeWon)) {
+        if(!_turkishLira.transfer(msg.sender,amnt)) {
             revert();
         }
+        rounds[lottery_no].tickets[ticket_no-rounds[lottery_no].firstTicketNo].collected = true;
+        
     }
 
     function getIthWinningTicket(uint i, uint lottery_no) public view returns (uint ticket_no,uint amount) {

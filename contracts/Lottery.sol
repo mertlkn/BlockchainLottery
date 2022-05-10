@@ -29,8 +29,8 @@ contract Lottery is ERC721 {
     mapping(uint => uint) public amountCollectedOfLottery;
     mapping(uint => Round) public rounds;
     uint initTime;
-    uint purchasePeriod = 0.75 minutes;
-    uint revealPeriod = 0.25 minutes;
+    uint purchasePeriod = 4 days;
+    uint revealPeriod = 3 days;
 
     constructor(TurkishLira turkishLira) ERC721("Lottery","Ltry") {
         _turkishLira = turkishLira;
@@ -213,5 +213,16 @@ contract Lottery is ERC721 {
 
     function getXored() public view returns(uint){
         return rounds[0].xored;
+    }
+
+    function transferTicket(address from, address to, uint256 tokenId, uint lotteryNo) public {
+        lotteryNo--;
+        transferFrom(from,to,tokenId);
+        rounds[lotteryNo].tickets[tokenId-rounds[lotteryNo].firstTicketNo].owner = to;
+    }
+
+    function getOwner(uint tokenId, uint lotteryNo) public view returns(address owner) {
+        lotteryNo--;
+        return rounds[lotteryNo].tickets[tokenId-rounds[lotteryNo].firstTicketNo].owner;
     }
 }
